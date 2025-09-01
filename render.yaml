@@ -1,15 +1,15 @@
 services:
-  # --- Web API ---
   - type: web
     name: acp-fund-api
     env: python
     plan: starter
+    region: frankfurt
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATA_DIR
         value: /data
-      - key: FMP_API_KEY         # set value in the dashboard later
+      - key: FMP_API_KEY
         sync: false
       - key: INITIAL_CASH
         value: "1500"
@@ -23,45 +23,3 @@ services:
       - name: portfolio-disk
         mountPath: /data
         sizeGB: 5
-
-  # --- Cron: Rebalance on 1st & 15th (20:00 UTC) ---
-  - type: cron
-    name: portfolio-rebalance
-    env: python
-    schedule: "0 20 1,15 * *"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python rebalance.py
-    envVars:
-      - key: DATA_DIR
-        value: /data
-      - key: FMP_API_KEY
-        sync: false
-      - key: INITIAL_CASH
-        value: "1500"
-      - key: RISK_FREE_RATE
-        value: "0.02"
-      - key: X_MAX
-        value: "15"
-      - key: Y_MIN
-        value: "5"
-    disk:
-      name: portfolio-disk
-      mountPath: /data
-
-  # --- Cron: Daily NAV update (20:30 UTC) ---
-  - type: cron
-    name: portfolio-daily-update
-    env: python
-    schedule: "30 20 * * *"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python update_nav.py
-    envVars:
-      - key: DATA_DIR
-        value: /data
-      - key: FMP_API_KEY
-        sync: false
-      - key: RISK_FREE_RATE
-        value: "0.02"
-    disk:
-      name: portfolio-disk
-      mountPath: /data
