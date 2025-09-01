@@ -1,0 +1,10 @@
+{
+  "Date": "2025-08-07",
+  "Holdings": ["AAPL", "MSFT", "GOOGL"],
+  "Positions": {
+    "AAPL": 10,
+    "MSFT": 8,
+    "GOOGL": 5
+  },
+  "Cash": 200.5
+}

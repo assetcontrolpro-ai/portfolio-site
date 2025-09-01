@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ACP Fund – NAV & Composition</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;margin:0;background:#0b0c10;color:#e8e8e8}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    h1{font-size:20px;margin:0}
+    .card{background:#121318;border:1px solid #1f2330;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    #meta{opacity:.8;font-size:14px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px;border-bottom:1px solid #1f2330}
+    th{text-align:left;opacity:.8}
+    .grid{display:grid;grid-template-columns: 2fr 1fr; gap:16px}
+    @media (max-width:900px){.grid{grid-template-columns: 1fr}}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#1e2533;font-size:12px;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>ACP Fund <span class="pill" id="last-date"></span></h1>
+      <div id="meta"></div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <canvas id="navChart" height="120"></canvas>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px">Composition actuelle</h3>
+        <div id="comp"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function fetchText(path){ const r = await fetch(path, {cache:"no-store"}); if(!r.ok) throw new Error(path+" "+r.status); return r.text(); }
+async function fetchJSON(path){ const r = await fetch(path, {cache:"no-store"}); if(!r.ok) throw new Error(path+" "+r.status); return r.json(); }
+
+function parseCSV(csv){
+  const lines = csv.trim().split(/\r?\n/);
+  const header = lines.shift().split(",").map(s=>s.trim());
+  return lines.map(line=>{
+    const parts = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(s=>s.replace(/^"|"$/g,""));
+    const obj = {};
+    header.forEach((h,i)=>obj[h]=parts[i]);
+    return obj;
+  });
+}
+
+function base100(values){
+  if(!values.length) return [];
+  const base = Number(values[0]) || 1;
+  return values.map(v => (Number(v)/base)*100);
+}
+
+function fmt(number){ return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(number); }
+
+(async ()=>{
+  try{
+    const [csv, comp] = await Promise.all([
+      fetchText("./data/portfolio_history.csv"),
+      fetchJSON("./data/current_composition.json")
+    ]);
+
+    const rows = parseCSV(csv).map(r=>({date:r.Date || r.Date, nav: Number(r.NAV || r["Portfolio Value"] || r.nav)}))
+                              .filter(r=>!Number.isNaN(r.nav));
+    rows.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+    const labels = rows.map(r=>r.date);
+    const nav100 = base100(rows.map(r=>r.nav));
+
+    // chart
+    const ctx = document.getElementById('navChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'NAV (base 100)', data: nav100, tension:.15, borderWidth:2, pointRadius:0 }] },
+      options: {
+        responsive:true,
+        plugins:{ legend:{ labels:{ color:'#e8e8e8'} } },
+        scales:{
+          x:{ ticks:{ color:'#b8c0d0', maxTicksLimit:8 }, grid:{ color:'rgba(255,255,255,0.06)'} },
+          y:{ ticks:{ color:'#b8c0d0' }, grid:{ color:'rgba(255,255,255,0.06)' } }
+        }
+      }
+    });
+
+    // composition
+    const lastDate = labels[labels.length-1] || comp?.date || '';
+    document.getElementById('last-date').textContent = lastDate;
+
+    const holdings = comp?.Holdings || [];
+    const pos = comp?.Positions || {};
+    const cash = Number(comp?.Cash || 0);
+    const totalQty = Object.values(pos).reduce((a,b)=>a+Number(b||0),0) || 1;
+
+    let html = `<table><thead><tr><th>Ticker</th><th>Quantité</th><th>Poids (proxy)</th></tr></thead><tbody>`;
+    holdings.forEach(t=>{
+      const q = Number(pos[t] || 0);
+      html += `<tr><td>${t}</td><td>${fmt(q)}</td><td>${fmt(100*q/totalQty)}%</td></tr>`;
+    });
+    html += `</tbody></table><div style="margin-top:8px;opacity:.8">Cash: ${fmt(cash)}</div>`;
+    document.getElementById('comp').innerHTML = html;
+
+    document.getElementById('meta').textContent = `Points: ${rows.length} • Dernière NAV: ${fmt(rows[rows.length-1]?.nav || 0)}`;
+  }catch(e){
+    document.getElementById('meta').textContent = "Erreur de chargement des données";
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
