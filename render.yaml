@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: acp-fund-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATA_DIR
+        value: /data
+    disks:
+      - name: portfolio-disk
+        mountPath: /data
+        sizeGB: 5
+
+jobs:
+  - type: cron
+    name: portfolio-rebalance
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python rebalance.py"
+    schedule: "0 20 1,15 * *"
+    envVars:
+      - key: DATA_DIR
+        value: /data
+    disks:
+      - name: portfolio-disk
+        mountPath: /data
+        sizeGB: 5
+
+  - type: cron
+    name: portfolio-daily-update
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python update_nav.py"
+    schedule: "30 20 * * *"
+    envVars:
+      - key: DATA_DIR
+        value: /data
+    disks:
+      - name: portfolio-disk
+        mountPath: /data
+        sizeGB: 5
