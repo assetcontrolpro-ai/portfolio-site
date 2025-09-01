@@ -13,31 +13,27 @@ services:
         mountPath: /data
         sizeGB: 5
 
-jobs:
-  - type: cron
-    name: portfolio-rebalance
+cronJobs:
+  - name: portfolio-rebalance
+    schedule: "0 20 1,15 * *"   # 20:00 UTC
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python rebalance.py
-    schedule: "0 20 1,15 * *"
     envVars:
       - key: DATA_DIR
         value: /data
-    disks:
-      - name: portfolio-disk
-        mountPath: /data
-        sizeGB: 5
+    disk:
+      name: portfolio-disk
+      mountPath: /data
 
-  - type: cron
-    name: portfolio-daily-update
+  - name: portfolio-daily-update
+    schedule: "30 20 * * *"     # 20:30 UTC
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: python update_nav.py
-    schedule: "30 20 * * *"
     envVars:
       - key: DATA_DIR
         value: /data
-    disks:
-      - name: portfolio-disk
-        mountPath: /data
-        sizeGB: 5
+    disk:
+      name: portfolio-disk
+      mountPath: /data
